@@ -291,7 +291,6 @@ class TestPublish(unittest.TestCase):
         """Ensure that publish correctly publishes a message to the correct
         topic.
         """
-        import base64
 
         mock_topics = mock.Mock()
         mock_publish = mock.Mock()
@@ -304,14 +303,13 @@ class TestPublish(unittest.TestCase):
         mock_topics.publish.assert_called_once_with(body={
             'topic': '/topics/project/foo',
             'message': {
-                'data': base64.b64encode('bar'),
+                'data': 'bar',
             }
         })
         mock_publish.execute.assert_called_once_with()
 
     def test_publish_error(self):
         """Ensure that publish raises an exception when the publish fails."""
-        import base64
 
         mock_topics = mock.Mock()
         mock_publish = mock.Mock()
@@ -325,8 +323,94 @@ class TestPublish(unittest.TestCase):
         mock_topics.publish.assert_called_once_with(body={
             'topic': '/topics/project/foo',
             'message': {
-                'data': base64.b64encode('bar'),
+                'data': 'bar',
             }
         })
         mock_publish.execute.assert_called_once_with()
+
+
+class TestPull(unittest.TestCase):
+
+    def setUp(self):
+        self.project_id = 'project'
+        self.mock_pubsub = mock.Mock()
+        self.client = client.PubSubClient(self.mock_pubsub, self.project_id)
+
+    def test_pull_no_block(self):
+        """Ensures that pull makes a request with returnImmediately True when
+        block is False and the received message is acked.
+        """
+
+        mock_subscriptions = mock.Mock()
+        mock_pull = mock.Mock()
+        mock_pull.execute.return_value = {
+            'pubsubEvent': {'message': {'data': 'hello world'}},
+            'ackId': 'abc',
+        }
+        mock_subscriptions.pull.return_value = mock_pull
+        self.mock_pubsub.subscriptions.return_value = mock_subscriptions
+
+        message = self.client.pull('foo')
+
+        self.assertEqual('hello world', message)
+        self.assertEqual(2, self.mock_pubsub.subscriptions.call_count)
+        mock_subscriptions.pull.assert_called_once_with(body={
+            'subscription': '/subscriptions/project/foo',
+            'returnImmediately': True,
+        })
+        mock_pull.execute.assert_called_once_with()
+        mock_subscriptions.acknowledge.assert_called_once_with(body={
+            'subscription': '/subscriptions/project/foo',
+            'ackId': ['abc'],
+        })
+
+    def test_pull_block(self):
+        """Ensures that pull makes a request with returnImmediately False when
+        block is True and the received message is acked.
+        """
+
+        mock_subscriptions = mock.Mock()
+        mock_pull = mock.Mock()
+        mock_pull.execute.return_value = {
+            'pubsubEvent': {'message': {'data': 'hello world'}},
+            'ackId': 'abc',
+        }
+        mock_subscriptions.pull.return_value = mock_pull
+        self.mock_pubsub.subscriptions.return_value = mock_subscriptions
+
+        message = self.client.pull('foo', block=True)
+
+        self.assertEqual('hello world', message)
+        self.assertEqual(2, self.mock_pubsub.subscriptions.call_count)
+        mock_subscriptions.pull.assert_called_once_with(body={
+            'subscription': '/subscriptions/project/foo',
+            'returnImmediately': False,
+        })
+        mock_pull.execute.assert_called_once_with()
+        mock_subscriptions.acknowledge.assert_called_once_with(body={
+            'subscription': '/subscriptions/project/foo',
+            'ackId': ['abc'],
+        })
+
+    def test_pull_no_message(self):
+        """Ensure that pull returns None if there is no message."""
+
+        mock_subscriptions = mock.Mock()
+        mock_pull = mock.Mock()
+        mock_pull.execute.return_value = {
+            'pubsubEvent': {},
+            'ackId': 'abc',
+        }
+        mock_subscriptions.pull.return_value = mock_pull
+        self.mock_pubsub.subscriptions.return_value = mock_subscriptions
+
+        message = self.client.pull('foo')
+
+        self.assertIsNone(message)
+        self.mock_pubsub.subscriptions.assert_called_once_with()
+        mock_subscriptions.pull.assert_called_once_with(body={
+            'subscription': '/subscriptions/project/foo',
+            'returnImmediately': True,
+        })
+        mock_pull.execute.assert_called_once_with()
 

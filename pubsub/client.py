@@ -1,5 +1,3 @@
-import base64
-
 from apiclient import errors
 from apiclient.discovery import build
 import httplib2
@@ -173,10 +171,40 @@ class PubSubClient(object):
         body = {
             'topic': topic,
             'message': {
-                'data': base64.b64encode(message.encode('utf-8')),
+                'data': message,
             }
         }
         self.pubsub.topics().publish(body=body).execute()
+
+    def pull(self, subscription, block=False):
+        """Pull a single message from a topic subscription.
+
+        Args:
+            subscription: the name of the subscription to pull from.
+            block: bool indicating if the pull should block until a message is
+                   available or a timeout occurs. If false, pull will return
+                   immediately.
+
+        Returns:
+            string containing the message data or None if no message was
+            retrieved.
+
+        Raises:
+            HttpError if the pull failed.
+        """
+
+        subscription = self._full_subscription_name(subscription)
+        body = {'subscription': subscription, 'returnImmediately': not block}
+        resp = self.pubsub.subscriptions().pull(body=body).execute()
+        message = resp.get('pubsubEvent').get('message')
+
+        if message:
+            ack_id = resp.get('ackId')
+            ack_body = {'subscription': subscription, 'ackId': [ack_id]}
+            self.pubsub.subscriptions().acknowledge(body=ack_body)
+            return message.get('data')
+
+        return None
 
     def _full_topic_name(self, name):
         return '/topics/%s/%s' % (self.project_id, name)
