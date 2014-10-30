@@ -106,7 +106,7 @@ class PubSubClient(object):
                 return
             raise
 
-    def subscribe(self, name, topic, endpoint):
+    def subscribe(self, name, topic, endpoint=None):
         """Create a subscription to a topic if it doesn't exist. This is
         idempotent, meaning if the subscription already exists, it has no
         effect.
