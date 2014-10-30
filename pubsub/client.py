@@ -1,3 +1,5 @@
+import base64
+
 from apiclient import errors
 from apiclient.discovery import build
 import httplib2
@@ -171,7 +173,7 @@ class PubSubClient(object):
         body = {
             'topic': topic,
             'message': {
-                'data': message,
+                'data': base64.b64encode(message),
             }
         }
         self.pubsub.topics().publish(body=body).execute()
@@ -201,8 +203,8 @@ class PubSubClient(object):
         if message:
             ack_id = resp.get('ackId')
             ack_body = {'subscription': subscription, 'ackId': [ack_id]}
-            self.pubsub.subscriptions().acknowledge(body=ack_body)
-            return message.get('data')
+            self.pubsub.subscriptions().acknowledge(body=ack_body).execute()
+            return base64.b64decode(message.get('data'))
 
         return None
 

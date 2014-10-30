@@ -1,3 +1,4 @@
+import base64
 import unittest
 
 from apiclient import errors
@@ -303,7 +304,7 @@ class TestPublish(unittest.TestCase):
         mock_topics.publish.assert_called_once_with(body={
             'topic': '/topics/project/foo',
             'message': {
-                'data': 'bar',
+                'data': base64.b64encode('bar'),
             }
         })
         mock_publish.execute.assert_called_once_with()
@@ -323,7 +324,7 @@ class TestPublish(unittest.TestCase):
         mock_topics.publish.assert_called_once_with(body={
             'topic': '/topics/project/foo',
             'message': {
-                'data': 'bar',
+                'data': base64.b64encode('bar'),
             }
         })
         mock_publish.execute.assert_called_once_with()
@@ -344,10 +345,16 @@ class TestPull(unittest.TestCase):
         mock_subscriptions = mock.Mock()
         mock_pull = mock.Mock()
         mock_pull.execute.return_value = {
-            'pubsubEvent': {'message': {'data': 'hello world'}},
+            'pubsubEvent': {
+                'message': {
+                    'data': base64.b64encode('hello world'),
+                },
+            },
             'ackId': 'abc',
         }
         mock_subscriptions.pull.return_value = mock_pull
+        mock_ack = mock.Mock()
+        mock_subscriptions.acknowledge.return_value = mock_ack
         self.mock_pubsub.subscriptions.return_value = mock_subscriptions
 
         message = self.client.pull('foo')
@@ -363,6 +370,7 @@ class TestPull(unittest.TestCase):
             'subscription': '/subscriptions/project/foo',
             'ackId': ['abc'],
         })
+        mock_ack.execute.assert_called_once_with()
 
     def test_pull_block(self):
         """Ensures that pull makes a request with returnImmediately False when
@@ -372,10 +380,16 @@ class TestPull(unittest.TestCase):
         mock_subscriptions = mock.Mock()
         mock_pull = mock.Mock()
         mock_pull.execute.return_value = {
-            'pubsubEvent': {'message': {'data': 'hello world'}},
+            'pubsubEvent': {
+                'message': {
+                    'data': base64.b64encode('hello world'),
+                },
+            },
             'ackId': 'abc',
         }
         mock_subscriptions.pull.return_value = mock_pull
+        mock_ack = mock.Mock()
+        mock_subscriptions.acknowledge.return_value = mock_ack
         self.mock_pubsub.subscriptions.return_value = mock_subscriptions
 
         message = self.client.pull('foo', block=True)
@@ -391,6 +405,7 @@ class TestPull(unittest.TestCase):
             'subscription': '/subscriptions/project/foo',
             'ackId': ['abc'],
         })
+        mock_ack.execute.assert_called_once_with()
 
     def test_pull_no_message(self):
         """Ensure that pull returns None if there is no message."""
