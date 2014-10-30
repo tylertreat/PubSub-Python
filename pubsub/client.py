@@ -1,3 +1,4 @@
+import base64
 import logging
 
 from apiclient import errors
@@ -74,7 +75,7 @@ class PubSubClient(object):
             name: the name of the topic to create.
 
         Raises:
-            exception if the create failed.
+            HttpError if the create failed.
         """
 
         name = self._full_topic_name(name)
@@ -100,7 +101,7 @@ class PubSubClient(object):
                       are received.
 
         Raises:
-            exception if the subscription creation failed.
+            HttpError if the subscription creation failed.
         """
 
         name = self._full_subscription_name(name)
@@ -120,6 +121,27 @@ class PubSubClient(object):
             else:
                 logging.exception(e)
                 raise
+
+    def publish(self, topic, message):
+        """Publish a message to a topic.
+
+        Args:
+            topic: the name of the topic to publish to.
+            message: the body of the message as a string.
+
+
+        Raises:
+            HttpError if the publish failed.
+        """
+
+        topic = self._full_topic_name(topic)
+        body = {
+            'topic': topic,
+            'message': {
+                'data': base64.b64encode(message.encode('utf-8')),
+            }
+        }
+        self.pubsub.topics().publish(body=body).execute()
 
     def _full_topic_name(self, name):
         return '/topics/%s/%s' % (self.project_id, name)

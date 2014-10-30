@@ -163,3 +163,54 @@ class TestSubscribe(unittest.TestCase):
             subscription='/subscriptions/project/foo')
         mock_subscription.execute.assert_called_once_with()
 
+
+class TestPublish(unittest.TestCase):
+
+    def setUp(self):
+        self.project_id = 'project'
+        self.mock_pubsub = mock.Mock()
+        self.client = client.PubSubClient(self.mock_pubsub, self.project_id)
+
+    def test_publish(self):
+        """Ensure that publish correctly publishes a message to the correct
+        topic.
+        """
+        import base64
+
+        mock_topics = mock.Mock()
+        mock_publish = mock.Mock()
+        mock_topics.publish.return_value = mock_publish
+        self.mock_pubsub.topics.return_value = mock_topics
+
+        self.client.publish('foo', 'bar')
+
+        self.mock_pubsub.topics.assert_called_once_with()
+        mock_topics.publish.assert_called_once_with(body={
+            'topic': '/topics/project/foo',
+            'message': {
+                'data': base64.b64encode('bar'),
+            }
+        })
+        mock_publish.execute.assert_called_once_with()
+
+    def test_publish_error(self):
+        """Ensure that publish raises an exception when the publish fails."""
+        import base64
+
+        mock_topics = mock.Mock()
+        mock_publish = mock.Mock()
+        mock_publish.execute.side_effect = errors.HttpError(400, 'error')
+        mock_topics.publish.return_value = mock_publish
+        self.mock_pubsub.topics.return_value = mock_topics
+
+        self.assertRaises(errors.HttpError, self.client.publish, 'foo', 'bar')
+
+        self.mock_pubsub.topics.assert_called_once_with()
+        mock_topics.publish.assert_called_once_with(body={
+            'topic': '/topics/project/foo',
+            'message': {
+                'data': base64.b64encode('bar'),
+            }
+        })
+        mock_publish.execute.assert_called_once_with()
+
