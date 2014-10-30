@@ -1,5 +1,4 @@
 import base64
-import logging
 
 from apiclient import errors
 from apiclient.discovery import build
@@ -86,7 +85,6 @@ class PubSubClient(object):
                 body = {'name': name}
                 self.pubsub.topics().create(body=body).execute()
             else:
-                logging.exception(e)
                 raise
 
     def subscribe(self, name, topic, endpoint):
@@ -119,8 +117,26 @@ class PubSubClient(object):
                 }
                 self.pubsub.subscriptions().create(body=body).execute()
             else:
-                logging.exception(e)
                 raise
+
+    def unsubscribe(self, name):
+        """Delete a subscription to a topic if it exists. This is idempotent,
+        meaning if the subscription doesn't exist, it has no effect.
+
+        Args:
+            name: the name of the subscription to delete.
+
+        Raises:
+            HttpError is the subscription deletion failed.
+        """
+
+        name = self._full_subscription_name(name)
+        try:
+            self.pubsub.subscriptions().delete(subscription=name).execute()
+        except errors.HttpError as e:
+            if e.resp.status == 404:
+                return
+            raise
 
     def publish(self, topic, message):
         """Publish a message to a topic.

@@ -164,6 +164,65 @@ class TestSubscribe(unittest.TestCase):
         mock_subscription.execute.assert_called_once_with()
 
 
+class TestUnsubscribe(unittest.TestCase):
+
+    def setUp(self):
+        self.project_id = 'project'
+        self.mock_pubsub = mock.Mock()
+        self.client = client.PubSubClient(self.mock_pubsub, self.project_id)
+
+    def test_unsubscribe_exists(self):
+        """Ensure that the subscription is deleted if it exists."""
+
+        mock_subscriptions = mock.Mock()
+        mock_delete = mock.Mock()
+        mock_subscriptions.delete.return_value = mock_delete
+        self.mock_pubsub.subscriptions.return_value = mock_subscriptions
+
+        self.client.unsubscribe('foo')
+
+        self.mock_pubsub.subscriptions.assert_called_once_with()
+        mock_subscriptions.delete.assert_called_once_with(
+            subscription='/subscriptions/project/foo')
+        mock_delete.execute.assert_called_once_with()
+
+    def test_unsubscribe_doesnt_exist(self):
+        """Ensure that nothing happens if the subscription doesn't exist."""
+
+        mock_subscriptions = mock.Mock()
+        mock_delete = mock.Mock()
+        mock_delete.execute.side_effect = errors.HttpError(
+            mock.Mock(status=404), 'not found')
+        mock_subscriptions.delete.return_value = mock_delete
+        self.mock_pubsub.subscriptions.return_value = mock_subscriptions
+
+        self.client.unsubscribe('foo')
+
+        self.mock_pubsub.subscriptions.assert_called_once_with()
+        mock_subscriptions.delete.assert_called_once_with(
+            subscription='/subscriptions/project/foo')
+        mock_delete.execute.assert_called_once_with()
+
+    def test_unsubscribe_error(self):
+        """Ensure that if the subscription deletion fails, an exception is
+        raised.
+        """
+
+        mock_subscriptions = mock.Mock()
+        mock_delete = mock.Mock()
+        mock_delete.execute.side_effect = errors.HttpError(
+            mock.Mock(status=400), 'error')
+        mock_subscriptions.delete.return_value = mock_delete
+        self.mock_pubsub.subscriptions.return_value = mock_subscriptions
+
+        self.assertRaises(errors.HttpError, self.client.unsubscribe, 'foo')
+
+        self.mock_pubsub.subscriptions.assert_called_once_with()
+        mock_subscriptions.delete.assert_called_once_with(
+            subscription='/subscriptions/project/foo')
+        mock_delete.execute.assert_called_once_with()
+
+
 class TestPublish(unittest.TestCase):
 
     def setUp(self):
