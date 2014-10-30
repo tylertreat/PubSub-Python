@@ -97,6 +97,63 @@ class TestCreateTopic(unittest.TestCase):
         mock_topic.execute.assert_called_once_with()
 
 
+class TestDeleteTopic(unittest.TestCase):
+
+    def setUp(self):
+        self.project_id = 'project'
+        self.mock_pubsub = mock.Mock()
+        self.client = client.PubSubClient(self.mock_pubsub, self.project_id)
+
+    def test_delete_exists(self):
+        """Ensure that the topic is deleted if it exists."""
+
+        mock_topics = mock.Mock()
+        mock_delete = mock.Mock()
+        mock_topics.delete.return_value = mock_delete
+        self.mock_pubsub.topics.return_value = mock_topics
+
+        self.client.delete_topic('foo')
+
+        self.mock_pubsub.topics.assert_called_once_with()
+        mock_topics.delete.assert_called_once_with(
+            topic='/topics/project/foo')
+        mock_delete.execute.assert_called_once_with()
+
+    def test_delete_doesnt_exist(self):
+        """Ensure that nothing happens if the topic doesn't exist."""
+
+        mock_topics = mock.Mock()
+        mock_delete = mock.Mock()
+        mock_delete.execute.side_effect = errors.HttpError(
+            mock.Mock(status=404), 'not found')
+        mock_topics.delete.return_value = mock_delete
+        self.mock_pubsub.topics.return_value = mock_topics
+
+        self.client.delete_topic('foo')
+
+        self.mock_pubsub.topics.assert_called_once_with()
+        mock_topics.delete.assert_called_once_with(
+            topic='/topics/project/foo')
+        mock_delete.execute.assert_called_once_with()
+
+    def test_delete_error(self):
+        """Ensure that if the topic deletion fails, an exception is raised. """
+
+        mock_topics = mock.Mock()
+        mock_delete = mock.Mock()
+        mock_delete.execute.side_effect = errors.HttpError(
+            mock.Mock(status=400), 'error')
+        mock_topics.delete.return_value = mock_delete
+        self.mock_pubsub.topics.return_value = mock_topics
+
+        self.assertRaises(errors.HttpError, self.client.delete_topic, 'foo')
+
+        self.mock_pubsub.topics.assert_called_once_with()
+        mock_topics.delete.assert_called_once_with(
+            topic='/topics/project/foo')
+        mock_delete.execute.assert_called_once_with()
+
+
 class TestSubscribe(unittest.TestCase):
 
     def setUp(self):

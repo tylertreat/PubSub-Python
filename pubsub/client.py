@@ -87,6 +87,25 @@ class PubSubClient(object):
             else:
                 raise
 
+    def delete_topic(self, name):
+        """Delete a topic. This is idempotent, meaning if the topic doesn't
+        exist, it has no effect.
+
+        Args:
+            name: the name of the topic to delete.
+
+        Raises:
+            HttpError if the delete failed.
+        """
+
+        name = self._full_topic_name(name)
+        try:
+            self.pubsub.topics().delete(topic=name).execute()
+        except errors.HttpError as e:
+            if e.resp.status == 404:
+                return
+            raise
+
     def subscribe(self, name, topic, endpoint):
         """Create a subscription to a topic if it doesn't exist. This is
         idempotent, meaning if the subscription already exists, it has no
