@@ -14,7 +14,7 @@ def get_client(project_id, credentials=None, service_account=None,
     authenticate requests to BigQuery.
 
     Args:
-        project_id: the BigQuery project id.
+        project_id: the Google Cloud project id.
         credentials: an AssertionCredentials instance to authenticate requests
                      to BigQuery.
         service_account: the Google API service account name.
@@ -207,6 +207,49 @@ class PubSubClient(object):
             return base64.b64decode(message.get('data'))
 
         return None
+
+    def pull_batch(self, subscription, batch_size, block=False):
+        """Pull a batch of messages from a topic subscription. This can return
+        less than the provided batch size.
+
+        Args:
+            subscription: the name of the subscription to pull from.
+            batch_size: the maximum number of messages to pull.
+            block: bool indicating if the pull should block until a message is
+                   available or a timeout occurs. If false, pull will return
+                   immediately.
+
+        Returns:
+            list of strings containing the message data.
+
+        Raises:
+            HttpError if the pull failed.
+        """
+
+        subscription = self._full_subscription_name(subscription)
+        body = {
+            'subscription': subscription,
+            'returnImmediately': not block,
+            'maxEvents': batch_size,
+        }
+        resp = self.pubsub.subscriptions().pullBatch(body=body).execute()
+        items = resp.get('pullResponses')
+        if not items:
+            return []
+
+        ack_ids = []
+        messages = []
+        for item in items:
+            ack_ids.append(item.get('ackId'))
+            message = item.get('pubsubEvent').get('message')
+            if message:
+                messages.append(base64.b64decode(message.get('data')))
+
+        if ack_ids:
+            ack_body = {'subscription': subscription, 'ackId': ack_ids}
+            self.pubsub.subscriptions().acknowledge(body=ack_body).execute()
+
+        return messages
 
     def _full_topic_name(self, name):
         return '/topics/%s/%s' % (self.project_id, name)
